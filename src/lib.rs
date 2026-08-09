@@ -15,15 +15,14 @@ mod ports;
 mod transfer;
 
 pub use delegation::{
-    AuthorizedSubject, CLIPTOWN_API_AUDIENCE, DelegatedClaims, DelegationError,
-    DelegationPolicy, LOA2_ASSURANCE_CONTEXT, MEMEBANK_CLIENT_ID, MEMEBANK_DELETE_SCOPE,
-    MEMEBANK_READ_SCOPE, MEMEBANK_WRITE_SCOPE, Operation, authorize_delegated_operation,
+    AuthorizedSubject, CLIPTOWN_API_AUDIENCE, DelegatedClaims, DelegationError, DelegationPolicy,
+    LOA2_ASSURANCE_CONTEXT, MEMEBANK_CLIENT_ID, MEMEBANK_DELETE_SCOPE, MEMEBANK_READ_SCOPE,
+    MEMEBANK_WRITE_SCOPE, Operation, authorize_delegated_operation,
 };
 pub use error::ValidationError;
 pub use model::{
-    ApplicationId, ClipId, ClipKind, ContentHash, DeviceId, EncryptedClip,
-    EncryptedClipInput, EncryptedVaultRecord, EncryptedVaultRecordInput, SyncCursor, SyncPage,
-    VaultRecordId,
+    ApplicationId, ClipId, ClipKind, ContentHash, DeviceId, EncryptedClip, EncryptedClipInput,
+    EncryptedVaultRecord, EncryptedVaultRecordInput, SyncCursor, SyncPage, VaultRecordId,
 };
 pub use policy::{ClipboardCapability, DataDomain, RetentionPolicy};
 pub use ports::{ClipStore, SyncTransport, VaultStore};

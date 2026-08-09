@@ -52,10 +52,7 @@ impl RetentionPolicy {
     /// # Errors
     ///
     /// Returns [`ValidationError::InvalidRetention`] when either bound is zero.
-    pub const fn bounded(
-        max_items: usize,
-        max_age_seconds: u64,
-    ) -> Result<Self, ValidationError> {
+    pub const fn bounded(max_items: usize, max_age_seconds: u64) -> Result<Self, ValidationError> {
         if max_items == 0 || max_age_seconds == 0 {
             return Err(ValidationError::InvalidRetention {
                 max_items,
