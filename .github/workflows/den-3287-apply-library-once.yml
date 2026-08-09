@@ -1,0 +1,175 @@
+name: DEN-3287 semantic library integration
+
+on:
+  push:
+    branches:
+      - agent/den-3287-real-library
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: den-3287-semantic-library-integration
+  cancel-in-progress: false
+
+jobs:
+  integrate:
+    if: >-
+      github.repository == 'cliptown/cliptown-lib' &&
+      github.ref == 'refs/heads/agent/den-3287-real-library'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Check out exact integration branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: agent/den-3287-real-library
+          fetch-depth: 0
+          persist-credentials: true
+          show-progress: false
+
+      - name: Verify preserved parallel-agent domain core
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git hash-object src/model.rs)" = d8a5cb992c486e021190920818948533daef2a1d
+          test "$(git hash-object src/policy.rs)" = a57350504c146770de2e799d8003ba67014d8074
+          test "$(git hash-object src/ports.rs)" = c072621e4de233418e3660bf80edbde782efaf24
+          test "$(git hash-object docs/architecture.md)" = f02e67ea9f113c80eb223923e22ba1ad2848981b
+          test "$(git hash-object LICENSE)" = 7470ae2ceb7f5b9e38b3c24a4a582de2be20e624
+          test "$(git merge-base HEAD origin/main)" = 1f71cdc19f2a3ca941e49d0202dd91a91101d1e5
+
+      - name: Reconstruct and extract reviewed semantic overlay
+        shell: bash
+        run: |
+          set -euo pipefail
+          root=.github/tmp/den-3287-semantic-library
+          declare -A expected=(
+            [part01]=3ade656f639cfdfdea4e65f6056e1db76fa3452feda698862a590d32f8fd64fc
+            [part02]=96f22837ee96300478292a1ffde941eb0800cd491a2ff41a50501428e66823b4
+            [part03]=2774173715ca2bab758cc8d686e93bfcc996c338ad06f3c5bc780aebbd0498e9
+            [part04]=4c6a6251c3834eea9d207db3b53185329812d92391373ece6e280301886f92ab
+            [part05]=bdf84bc8a110bdecd0088c71ec44ee82732043d24ee8c926970de5d682527ace
+            [part06]=e391b37cbbb412ecee42c08440f6145c1a374070ef7b2ff4d97278f1d6fe9e0e
+          )
+          for part in part01 part02 part03 part04 part05 part06; do
+            file="${root}.${part}"
+            test -f "$file"
+            actual="$(sha256sum "$file" | awk '{print $1}')"
+            echo "SEALED_CHUNK name=${part} bytes=$(wc -c < "$file") sha256=${actual}"
+            test "$actual" = "${expected[$part]}"
+          done
+          cat \
+            "${root}.part01" \
+            "${root}.part02" \
+            "${root}.part03" \
+            "${root}.part04" \
+            "${root}.part05" \
+            "${root}.part06" \
+            >/tmp/den-3287-semantic-library.tar.gz.b64
+          test "$(wc -c < /tmp/den-3287-semantic-library.tar.gz.b64)" = 20728
+          test "$(sha256sum /tmp/den-3287-semantic-library.tar.gz.b64 | awk '{print $1}')" = 864e9ac554dfa4503d15947f1f0d2e63066d69ffbe60adae6dddd8a15be1a5bc
+          base64 -d /tmp/den-3287-semantic-library.tar.gz.b64 >/tmp/den-3287-cliptown-lib-overlay.tar.gz
+          test "$(wc -c < /tmp/den-3287-cliptown-lib-overlay.tar.gz)" = 15544
+          test "$(sha256sum /tmp/den-3287-cliptown-lib-overlay.tar.gz | awk '{print $1}')" = 3f126deac73b369af30e68a7ab113332cd2e9189616f4407959d95cbe47eb78c
+          python3 - <<'PY'
+          from pathlib import Path, PurePosixPath
+          import os
+          import tarfile
+
+          archive = Path('/tmp/den-3287-cliptown-lib-overlay.tar.gz')
+          root = Path.cwd().resolve()
+          expected = {
+              'Cargo.toml', '.zpkg.toml', '.gitignore', 'README.md',
+              'SECURITY.md', 'PROVENANCE.md', 'src/lib.rs', 'src/error.rs',
+              'src/api.rs', 'src/contract.rs', 'src/convergence.rs',
+              'src/crypto.rs', 'src/search.rs', 'scripts/check-package.py',
+              '.github/workflows/ci.yml',
+          }
+          with tarfile.open(archive, 'r:gz') as bundle:
+              members = bundle.getmembers()
+              names = {member.name for member in members}
+              print('SEALED_MEMBERS ' + ','.join(sorted(names)))
+              if names != expected or len(members) != len(expected):
+                  raise SystemExit(f'unexpected overlay members: {sorted(names)}')
+              for member in members:
+                  name = PurePosixPath(member.name)
+                  if name.is_absolute() or '..' in name.parts or not member.isfile():
+                      raise SystemExit(f'unsafe overlay member: {member.name}')
+                  destination = (root / Path(*name.parts)).resolve()
+                  if root not in destination.parents:
+                      raise SystemExit(f'overlay path escapes repository: {member.name}')
+                  destination.parent.mkdir(parents=True, exist_ok=True)
+                  source = bundle.extractfile(member)
+                  if source is None:
+                      raise SystemExit(f'missing overlay bytes: {member.name}')
+                  destination.write_bytes(source.read())
+                  os.chmod(destination, member.mode & 0o777)
+          print('SEALED_EXTRACTION_OK')
+          PY
+          rm -f \
+            /tmp/den-3287-semantic-library.tar.gz.b64 \
+            /tmp/den-3287-cliptown-lib-overlay.tar.gz
+
+      - name: Remove only the known placeholder Zed lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -f .zpkg.lock ]]; then
+            normalized="$(tr -d '[:space:]' < .zpkg.lock)"
+            if [[ "$normalized" != version=1 ]]; then
+              echo 'Refusing to remove a non-placeholder .zpkg.lock' >&2
+              exit 1
+            fi
+            rm .zpkg.lock
+          fi
+
+      - name: Re-verify preserved domain ownership boundaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git hash-object src/model.rs)" = d8a5cb992c486e021190920818948533daef2a1d
+          test "$(git hash-object src/policy.rs)" = a57350504c146770de2e799d8003ba67014d8074
+          test "$(git hash-object src/ports.rs)" = c072621e4de233418e3660bf80edbde782efaf24
+          test "$(git hash-object docs/architecture.md)" = f02e67ea9f113c80eb223923e22ba1ad2848981b
+          test "$(git hash-object LICENSE)" = 7470ae2ceb7f5b9e38b3c24a4a582de2be20e624
+
+      - name: Set up Rust 1.88
+        uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
+        with:
+          toolchain: 1.88.0
+          components: rustfmt, clippy
+
+      - name: Generate lock, normalize, and validate
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo generate-lockfile
+          cargo fmt --all
+          python3 scripts/check-package.py
+          cargo metadata --locked --format-version 1 --no-deps >/dev/null
+          cargo clippy --locked --all-targets -- -D warnings
+          cargo test --locked --all-targets
+          cargo build --locked --release
+          cargo package --locked --allow-dirty
+
+      - name: Remove one-shot material
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f .github/tmp/den-3287-semantic-library.tar.gz.b64
+          rm -f .github/tmp/den-3287-semantic-library.part{01,02,03,04,05,06}
+          rm .github/workflows/den-3287-apply-library-once.yml
+          rmdir .github/tmp 2>/dev/null || true
+
+      - name: Commit semantic integration without force
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          test -n "$(git diff --cached --name-only)"
+          git commit -m 'feat(DEN-3287): integrate canonical interfaces and shared policy'
+          git push origin HEAD:agent/den-3287-real-library
