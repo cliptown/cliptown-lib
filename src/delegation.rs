@@ -409,11 +409,7 @@ mod tests {
             Err(DelegationError::WrongScope)
         );
         assert_eq!(
-            authorize_delegated_operation(
-                claims(MEMEBANK_READ_SCOPE),
-                Operation::Write,
-                policy(),
-            ),
+            authorize_delegated_operation(claims(MEMEBANK_READ_SCOPE), Operation::Write, policy(),),
             Err(DelegationError::WrongScope)
         );
     }
