@@ -1,0 +1,26 @@
+[package]
+org = "cliptown"
+name = "cliptown-lib"
+version = "0.1.0"
+description = "Shared Rust domain and application library for ClipTown"
+license = "MIT"
+keywords = ["clipboard", "e2ee", "authorization", "rust"]
+
+[package.repository]
+vcs = "git"
+url = "https://github.com/cliptown/cliptown-lib"
+
+[install]
+dir = ".vendor/.zed"
+
+[dependencies]
+"cliptown/cliptown-interfaces" = "^0.1.0"
+
+[publish]
+include_readme = true
+tag_format = "v{version}"
+exclude = [".vendor/.zed/**", "**/target/**", "result"]
+
+[targets.rust]
+dir = "."
+adapter = "rust"
