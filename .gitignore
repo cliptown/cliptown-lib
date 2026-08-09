@@ -6,3 +6,7 @@
 .idea/
 .vscode/
 *.swp
+**/*.rs.bk
+.direnv/
+result
+.vendor/.zed/
