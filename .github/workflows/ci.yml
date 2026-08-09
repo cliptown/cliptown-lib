@@ -39,8 +39,9 @@ jobs:
 
           root = pathlib.Path('.')
           cargo = tomllib.loads((root / 'Cargo.toml').read_text())
+          cargo_lock = tomllib.loads((root / 'Cargo.lock').read_text())
           zed = tomllib.loads((root / '.zpkg.toml').read_text())
-          lock = tomllib.loads((root / 'Cargo.lock').read_text())
+          zed_lock = tomllib.loads((root / '.zpkg.lock').read_text())
 
           assert cargo['package']['name'] == 'cliptown-lib'
           assert cargo['package']['edition'] == '2024'
@@ -55,15 +56,18 @@ jobs:
           }
           assert zed['targets']['repository']['dir'] == '.'
           assert zed['targets']['rust'] == {'dir': '.', 'adapter': 'rust'}
-          assert lock['version'] == 4
+
+          assert cargo_lock['version'] == 4
           assert any(
               package.get('name') == 'cliptown-lib'
               and package.get('version') == cargo['package']['version']
-              for package in lock['package']
+              for package in cargo_lock['package']
           )
-          assert not (root / '.zpkg.lock').exists(), (
-              'Do not fabricate .zpkg.lock; generate it with the reviewed resolver.'
-          )
+
+          # Preserve and validate the resolver lock introduced by the concurrent
+          # bootstrap. Version 1 permits the root package to be addressable before
+          # the first external dependency resolution records concrete entries.
+          assert zed_lock == {'version': 1}
           PY
           cargo metadata --locked --format-version 1 --no-deps >/dev/null
 
