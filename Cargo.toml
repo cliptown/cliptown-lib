@@ -3,13 +3,12 @@ name = "cliptown-lib"
 version = "0.1.0"
 edition = "2024"
 rust-version = "1.88"
-description = "Shared Rust domain library and policy core for ClipTown"
+description = "Shared Rust domain and application-policy library for ClipTown"
 license = "MIT"
 repository = "https://github.com/cliptown/cliptown-lib"
 readme = "README.md"
-keywords = ["clipboard", "sync", "encryption", "e2ee"]
-categories = ["cryptography", "data-structures"]
-publish = false
+keywords = ["clipboard", "sync", "encryption", "authorization", "e2ee"]
+categories = ["authentication", "cryptography", "data-structures"]
 
 [lib]
 name = "cliptown_lib"
@@ -17,6 +16,9 @@ path = "src/lib.rs"
 
 [features]
 default = []
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
 
 [lints.rust]
 missing_docs = "deny"
