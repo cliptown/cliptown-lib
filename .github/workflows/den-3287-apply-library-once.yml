@@ -45,10 +45,24 @@ jobs:
         run: |
           set -euo pipefail
           payload=.github/tmp/den-3287-semantic-library.tar.gz.b64
+          expected_payload_sha=864e9ac554dfa4503d15947f1f0d2e63066d69ffbe60adae6dddd8a15be1a5bc
+          expected_archive_sha=3f126deac73b369af30e68a7ab113332cd2e9189616f4407959d95cbe47eb78c
           test -f "$payload"
-          test "$(sha256sum "$payload" | awk '{print $1}')" = 864e9ac554dfa4503d15947f1f0d2e63066d69ffbe60adae6dddd8a15be1a5bc
+          actual_payload_sha="$(sha256sum "$payload" | awk '{print $1}')"
+          payload_bytes="$(wc -c < "$payload")"
+          echo "SEALED_PAYLOAD bytes=${payload_bytes} sha256=${actual_payload_sha}"
+          if [[ "$actual_payload_sha" != "$expected_payload_sha" ]]; then
+            echo "sealed payload digest mismatch; expected ${expected_payload_sha}" >&2
+            exit 1
+          fi
           base64 -d "$payload" >/tmp/den-3287-cliptown-lib-overlay.tar.gz
-          test "$(sha256sum /tmp/den-3287-cliptown-lib-overlay.tar.gz | awk '{print $1}')" = 3f126deac73b369af30e68a7ab113332cd2e9189616f4407959d95cbe47eb78c
+          actual_archive_sha="$(sha256sum /tmp/den-3287-cliptown-lib-overlay.tar.gz | awk '{print $1}')"
+          archive_bytes="$(wc -c < /tmp/den-3287-cliptown-lib-overlay.tar.gz)"
+          echo "SEALED_ARCHIVE bytes=${archive_bytes} sha256=${actual_archive_sha}"
+          if [[ "$actual_archive_sha" != "$expected_archive_sha" ]]; then
+            echo "decoded archive digest mismatch; expected ${expected_archive_sha}" >&2
+            exit 1
+          fi
           python3 - <<'PY'
           from pathlib import Path, PurePosixPath
           import os
@@ -76,6 +90,7 @@ jobs:
           with tarfile.open(archive, 'r:gz') as bundle:
               members = bundle.getmembers()
               names = {member.name for member in members}
+              print('SEALED_MEMBERS ' + ','.join(sorted(names)))
               if names != expected or len(members) != len(expected):
                   raise SystemExit(f'unexpected overlay members: {sorted(names)}')
               for member in members:
@@ -91,6 +106,7 @@ jobs:
                       raise SystemExit(f'missing overlay bytes: {member.name}')
                   destination.write_bytes(source.read())
                   os.chmod(destination, member.mode & 0o777)
+          print('SEALED_EXTRACTION_OK')
           PY
           rm -f /tmp/den-3287-cliptown-lib-overlay.tar.gz
 
