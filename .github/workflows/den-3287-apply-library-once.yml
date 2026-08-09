@@ -38,7 +38,7 @@ jobs:
           test "$(git hash-object src/ports.rs)" = c072621e4de233418e3660bf80edbde782efaf24
           test "$(git hash-object docs/architecture.md)" = f02e67ea9f113c80eb223923e22ba1ad2848981b
           test "$(git hash-object LICENSE)" = 7470ae2ceb7f5b9e38b3c24a4a582de2be20e624
-          test "$(git merge-base HEAD main)" = 1f71cdc19f2a3ca941e49d0202dd91a91101d1e5
+          test "$(git merge-base HEAD origin/main)" = 1f71cdc19f2a3ca941e49d0202dd91a91101d1e5
 
       - name: Validate and extract reviewed semantic overlay
         shell: bash
