@@ -1,18 +1,18 @@
-//! Shared transport-neutral domain and application-policy primitives for ClipTown.
+//! Transport-neutral domain types and policy invariants shared by ClipTown.
 //!
-//! Concrete database, HTTP, UI, key-store, and cryptographic implementations
-//! live behind the ports exposed here. Service adapters also verify credentials
-//! through shared-auth before passing normalized claims into the fail-closed
-//! delegated-authorization policy.
+//! The crate intentionally contains no concrete database, network, UI, token-
+//! verification, or cryptographic implementation. Those details live behind
+//! adapters and ports so applications cannot weaken the clipboard/application-
+//! vault separation or delegated product authorization.
 
 #![forbid(unsafe_code)]
 
-pub mod delegation;
-pub mod error;
-pub mod model;
-pub mod policy;
-pub mod ports;
-pub mod transfer;
+mod delegation;
+mod error;
+mod model;
+mod policy;
+mod ports;
+mod transfer;
 
 pub use delegation::{
     AuthorizedSubject, CLIPTOWN_API_AUDIENCE, DelegatedClaims, DelegationError,
@@ -21,8 +21,9 @@ pub use delegation::{
 };
 pub use error::ValidationError;
 pub use model::{
-    ApplicationId, ClipId, ClipKind, ContentHash, DeviceId, EncryptedClip, EncryptedClipInput,
-    EncryptedVaultRecord, EncryptedVaultRecordInput, SyncCursor, SyncPage, VaultRecordId,
+    ApplicationId, ClipId, ClipKind, ContentHash, DeviceId, EncryptedClip,
+    EncryptedClipInput, EncryptedVaultRecord, EncryptedVaultRecordInput, SyncCursor, SyncPage,
+    VaultRecordId,
 };
 pub use policy::{ClipboardCapability, DataDomain, RetentionPolicy};
 pub use ports::{ClipStore, SyncTransport, VaultStore};

@@ -3,7 +3,8 @@
 use std::error::Error;
 
 use crate::{
-    ApplicationId, ClipId, EncryptedClip, EncryptedVaultRecord, SyncCursor, SyncPage, VaultRecordId,
+    ApplicationId, ClipId, EncryptedClip, EncryptedVaultRecord, SyncCursor,
+    SyncPage, VaultRecordId,
 };
 
 /// Persistence operations for ordinary encrypted clipboard history.
@@ -23,7 +24,11 @@ pub trait ClipStore: Send + Sync {
     /// # Errors
     ///
     /// Returns the adapter's error when the page cannot be loaded.
-    fn load_clips_since(&self, cursor: SyncCursor, limit: usize) -> Result<SyncPage, Self::Error>;
+    fn load_clips_since(
+        &self,
+        cursor: SyncCursor,
+        limit: usize,
+    ) -> Result<SyncPage, Self::Error>;
 
     /// Deletes one encrypted clipboard record if it exists.
     ///
@@ -96,5 +101,9 @@ pub trait SyncTransport: Send + Sync {
     /// # Errors
     ///
     /// Returns the adapter's error when the remote page cannot be retrieved.
-    fn pull_clips(&self, cursor: SyncCursor, limit: usize) -> Result<SyncPage, Self::Error>;
+    fn pull_clips(
+        &self,
+        cursor: SyncCursor,
+        limit: usize,
+    ) -> Result<SyncPage, Self::Error>;
 }

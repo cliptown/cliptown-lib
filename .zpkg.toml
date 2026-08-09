@@ -2,9 +2,9 @@
 org = "cliptown"
 name = "cliptown-lib"
 version = "0.1.0"
-description = "Shared Rust domain and application-policy library for ClipTown"
+description = "Shared Rust domain library and policy core for ClipTown applications, services, and SDKs"
 license = "MIT"
-keywords = ["clipboard", "e2ee", "authorization", "sync", "rust"]
+keywords = ["clipboard", "rust", "sdk", "sync", "e2ee"]
 
 [package.repository]
 vcs = "git"
@@ -19,7 +19,7 @@ dir = ".vendor/.zed"
 [publish]
 include_readme = true
 tag_format = "v{version}"
-exclude = [".vendor/.zed/**", "**/target/**", "result"]
+exclude = [".vendor/.zed/**", "target/**"]
 
 [targets.repository]
 dir = "."

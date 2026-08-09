@@ -1,13 +1,12 @@
 /target/
-**/*.rs.bk
-Cargo.lock
 .env
 .env.*
 !.env.example
-.direnv/
-result
-.vendor/.zed/
 .DS_Store
 .idea/
 .vscode/
 *.swp
+**/*.rs.bk
+.direnv/
+result
+.vendor/.zed/

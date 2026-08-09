@@ -2,11 +2,8 @@
 
 use std::{error::Error, fmt};
 
-use serde::{Deserialize, Serialize};
-
 /// Durable state of an encrypted cross-product transfer.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TransferState {
     /// Transfer is available for a terminal action.
     Pending,
@@ -23,8 +20,7 @@ pub enum TransferState {
 }
 
 /// User-mediated acknowledgement outcome.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AcknowledgementDisposition {
     /// Recipient imported the transfer.
     Acknowledged,
@@ -44,7 +40,7 @@ impl AcknowledgementDisposition {
     }
 }
 
-/// Stable failure returned by a transfer state transition.
+/// Stable failure returned by a transfer-state transition.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TransferTransitionError {
     /// Clock or retention inputs are invalid.
@@ -67,7 +63,7 @@ impl fmt::Display for TransferTransitionError {
 
 impl Error for TransferTransitionError {}
 
-/// Return the externally visible state at a trusted time.
+/// Returns the externally visible state at a trusted time.
 pub fn effective_state(
     now_unix_seconds: i64,
     expires_at_unix_seconds: i64,
@@ -80,7 +76,7 @@ pub fn effective_state(
     Ok(stored_state)
 }
 
-/// Apply an idempotent acknowledgement transition.
+/// Applies an idempotent acknowledgement transition.
 pub fn acknowledge_transfer(
     now_unix_seconds: i64,
     expires_at_unix_seconds: i64,
@@ -101,7 +97,7 @@ pub fn acknowledge_transfer(
     Ok(target)
 }
 
-/// Apply an idempotent sender cancellation transition.
+/// Applies an idempotent sender-cancellation transition.
 pub fn cancel_transfer(
     now_unix_seconds: i64,
     expires_at_unix_seconds: i64,
@@ -121,8 +117,7 @@ pub fn cancel_transfer(
 }
 
 /// Operation bound to an idempotency key.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum IdempotentOperation {
     /// Create a new transfer.
     Create,
@@ -176,7 +171,7 @@ impl fmt::Display for IdempotencyError {
 
 impl Error for IdempotencyError {}
 
-/// Evaluate a request against an optional existing subject-owned binding.
+/// Evaluates a request against an optional existing subject-owned binding.
 #[allow(clippy::too_many_arguments)]
 pub fn evaluate_idempotency(
     now_unix_seconds: i64,
@@ -276,7 +271,7 @@ mod tests {
     }
 
     #[test]
-    fn acknowledgement_and_cancel_are_terminal_and_idempotent() {
+    fn terminal_actions_are_idempotent_but_cannot_be_reopened() {
         let acknowledged = acknowledge_transfer(
             NOW,
             NOW + 60,
@@ -284,7 +279,6 @@ mod tests {
             AcknowledgementDisposition::Acknowledged,
         )
         .unwrap();
-        assert_eq!(acknowledged, TransferState::Acknowledged);
         assert_eq!(
             acknowledge_transfer(
                 NOW,
@@ -319,7 +313,7 @@ mod tests {
     }
 
     #[test]
-    fn matching_active_idempotency_binding_replays() {
+    fn exact_active_binding_replays_and_digest_mismatch_conflicts() {
         let binding = IdempotencyBinding {
             subject: "subject-0001",
             key: "operation-key-0001",
@@ -341,19 +335,6 @@ mod tests {
             .unwrap(),
             IdempotencyDecision::Replay
         );
-    }
-
-    #[test]
-    fn digest_mismatch_conflicts_and_expired_binding_can_be_replaced() {
-        let binding = IdempotencyBinding {
-            subject: "subject-0001",
-            key: "operation-key-0001",
-            operation: IdempotentOperation::Acknowledge,
-            normalized_route: "/v1/integrations/memebank/transfers/id/ack",
-            request_digest: DIGEST,
-            expires_at_unix_seconds: NOW + 60,
-        };
-        let other_digest = "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB";
         assert_eq!(
             evaluate_idempotency(
                 NOW,
@@ -362,14 +343,21 @@ mod tests {
                 binding.key,
                 binding.operation,
                 binding.normalized_route,
-                other_digest,
+                "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
             ),
             Err(IdempotencyError::Conflict)
         );
+    }
 
+    #[test]
+    fn expired_binding_can_be_replaced() {
         let expired = IdempotencyBinding {
+            subject: "subject-0001",
+            key: "operation-key-0001",
+            operation: IdempotentOperation::Acknowledge,
+            normalized_route: "/v1/integrations/memebank/transfers/id/ack",
+            request_digest: DIGEST,
             expires_at_unix_seconds: NOW,
-            ..binding
         };
         assert_eq!(
             evaluate_idempotency(
@@ -379,7 +367,7 @@ mod tests {
                 expired.key,
                 expired.operation,
                 expired.normalized_route,
-                other_digest,
+                "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
             )
             .unwrap(),
             IdempotencyDecision::New

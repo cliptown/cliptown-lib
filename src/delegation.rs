@@ -1,13 +1,11 @@
-//! Fail-closed authorization policy for shared-auth delegated product tokens.
+//! Fail-closed policy for shared-auth delegated product tokens.
 //!
-//! Callers provide claims only after signature verification, exact-audience
-//! introspection, and session-revocation checks. This module performs product
-//! authorization and assurance policy; it never parses a bearer or contacts a
+//! A trusted service adapter verifies signatures, exact-audience introspection,
+//! and session revocation before constructing [`DelegatedClaims`]. This module
+//! performs product authorization only; it never parses a bearer or contacts a
 //! factor application.
 
 use std::{error::Error, fmt};
-
-use serde::{Deserialize, Serialize};
 
 /// Audience required by the ClipTown resource server.
 pub const CLIPTOWN_API_AUDIENCE: &str = "cliptown-api";
@@ -22,9 +20,8 @@ pub const MEMEBANK_DELETE_SCOPE: &str = "cliptown:memebank:delete";
 /// Assurance context required for sensitive operations.
 pub const LOA2_ASSURANCE_CONTEXT: &str = "urn:oresoftware:loa:2";
 
-/// A resource operation authorized by an exact delegated scope.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
+/// A resource operation authorized by one exact delegated scope.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Operation {
     /// Read a subject-owned resource.
     Read,
@@ -35,7 +32,7 @@ pub enum Operation {
 }
 
 impl Operation {
-    /// Return the one and only scope accepted for this operation.
+    /// Returns the one and only scope accepted for this operation.
     #[must_use]
     pub const fn required_scope(self) -> &'static str {
         match self {
@@ -45,7 +42,7 @@ impl Operation {
         }
     }
 
-    /// Return whether the operation requires recent level-two assurance.
+    /// Returns whether the operation requires recent level-two assurance.
     #[must_use]
     pub const fn requires_recent_loa2(self) -> bool {
         matches!(self, Self::Write | Self::Delete)
@@ -109,7 +106,7 @@ pub struct DelegationPolicy<'a> {
 /// Subject and session context returned after successful authorization.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AuthorizedSubject {
-    /// Stable resource owner subject.
+    /// Stable resource-owner subject.
     pub subject: String,
     /// Active session used for authorization.
     pub session_id: String,
@@ -148,7 +145,7 @@ pub enum DelegationError {
 
 impl fmt::Display for DelegationError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let code = match self {
+        formatter.write_str(match self {
             Self::InvalidPolicy => "invalid_policy",
             Self::InvalidClaims => "invalid_claims",
             Self::WrongIssuer => "wrong_issuer",
@@ -161,18 +158,16 @@ impl fmt::Display for DelegationError {
             Self::TokenLifetimeExceeded => "token_lifetime_exceeded",
             Self::WrongScope => "wrong_scope",
             Self::AssuranceRequired => "assurance_required",
-        };
-        formatter.write_str(code)
+        })
     }
 }
 
 impl Error for DelegationError {}
 
-/// Authorize one operation against exact delegated claims.
+/// Authorizes one operation against exact delegated claims.
 ///
-/// This function does not verify a signature or perform revocation I/O. Those
-/// responsibilities belong to the trusted adapter that constructs
-/// [`DelegatedClaims`].
+/// Signature verification and revocation I/O belong to the trusted adapter that
+/// constructs [`DelegatedClaims`].
 pub fn authorize_delegated_operation(
     claims: DelegatedClaims<'_>,
     operation: Operation,
@@ -197,18 +192,18 @@ pub fn authorize_delegated_operation(
         return Err(DelegationError::InactiveSession);
     }
 
-    let latest_accepted_not_before = policy
+    let latest_not_before = policy
         .now_unix_seconds
         .checked_add(policy.clock_skew_seconds)
         .ok_or(DelegationError::InvalidPolicy)?;
-    if claims.not_before_unix_seconds > latest_accepted_not_before {
+    if claims.not_before_unix_seconds > latest_not_before {
         return Err(DelegationError::TokenNotYetValid);
     }
-    let earliest_accepted_expiry = policy
+    let earliest_expiry = policy
         .now_unix_seconds
         .checked_sub(policy.clock_skew_seconds)
         .ok_or(DelegationError::InvalidPolicy)?;
-    if claims.expires_at_unix_seconds <= earliest_accepted_expiry {
+    if claims.expires_at_unix_seconds <= earliest_expiry {
         return Err(DelegationError::TokenExpired);
     }
 
@@ -224,7 +219,6 @@ pub fn authorize_delegated_operation(
     if scopes.next() != Some(operation.required_scope()) || scopes.next().is_some() {
         return Err(DelegationError::WrongScope);
     }
-
     if operation.requires_recent_loa2() {
         validate_recent_loa2(claims, policy)?;
     }
@@ -280,22 +274,19 @@ fn validate_recent_loa2(
     let authenticated_at = claims
         .authenticated_at_unix_seconds
         .ok_or(DelegationError::AssuranceRequired)?;
-    let latest_accepted_authentication = policy
+    let latest_authentication = policy
         .now_unix_seconds
         .checked_add(policy.clock_skew_seconds)
         .ok_or(DelegationError::InvalidPolicy)?;
-    if authenticated_at < 0 || authenticated_at > latest_accepted_authentication {
-        return Err(DelegationError::AssuranceRequired);
-    }
-    let age = policy
-        .now_unix_seconds
-        .checked_sub(authenticated_at)
-        .ok_or(DelegationError::AssuranceRequired)?;
     let maximum_age = policy
         .maximum_authentication_age_seconds
         .checked_add(policy.clock_skew_seconds)
         .ok_or(DelegationError::InvalidPolicy)?;
-    if age > maximum_age {
+    let age = policy
+        .now_unix_seconds
+        .checked_sub(authenticated_at)
+        .ok_or(DelegationError::AssuranceRequired)?;
+    if authenticated_at < 0 || authenticated_at > latest_authentication || age > maximum_age {
         return Err(DelegationError::AssuranceRequired);
     }
     Ok(())
@@ -354,7 +345,6 @@ mod tests {
         value.assurance_context = None;
         value.authentication_methods = &["password"];
         value.authenticated_at_unix_seconds = None;
-
         let authorized = authorize_delegated_operation(value, Operation::Read, policy()).unwrap();
         assert_eq!(authorized.scope, MEMEBANK_READ_SCOPE);
     }
@@ -367,18 +357,20 @@ mod tests {
             authorize_delegated_operation(stale, Operation::Write, policy()),
             Err(DelegationError::AssuranceRequired)
         );
-
-        let authorized = authorize_delegated_operation(
-            claims(MEMEBANK_DELETE_SCOPE),
-            Operation::Delete,
-            policy(),
-        )
-        .unwrap();
-        assert_eq!(authorized.scope, MEMEBANK_DELETE_SCOPE);
+        assert_eq!(
+            authorize_delegated_operation(
+                claims(MEMEBANK_DELETE_SCOPE),
+                Operation::Delete,
+                policy(),
+            )
+            .unwrap()
+            .scope,
+            MEMEBANK_DELETE_SCOPE
+        );
     }
 
     #[test]
-    fn audience_client_lineage_and_session_fail_closed() {
+    fn audience_lineage_and_session_fail_closed() {
         let mut wrong_audience = claims(MEMEBANK_READ_SCOPE);
         wrong_audience.audience = "other-api";
         assert_eq!(
@@ -402,14 +394,21 @@ mod tests {
     }
 
     #[test]
-    fn widened_or_operation_mismatched_scope_is_rejected() {
-        let widened = claims("cliptown:memebank:read cliptown:memebank:write");
+    fn widened_or_mismatched_scope_is_rejected() {
         assert_eq!(
-            authorize_delegated_operation(widened, Operation::Read, policy()),
+            authorize_delegated_operation(
+                claims("cliptown:memebank:read cliptown:memebank:write"),
+                Operation::Read,
+                policy(),
+            ),
             Err(DelegationError::WrongScope)
         );
         assert_eq!(
-            authorize_delegated_operation(claims(MEMEBANK_READ_SCOPE), Operation::Write, policy(),),
+            authorize_delegated_operation(
+                claims(MEMEBANK_READ_SCOPE),
+                Operation::Write,
+                policy(),
+            ),
             Err(DelegationError::WrongScope)
         );
     }

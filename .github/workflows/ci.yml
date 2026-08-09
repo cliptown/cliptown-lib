@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
+  group: cliptown-lib-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -29,7 +29,7 @@ jobs:
           toolchain: 1.88.0
           components: rustfmt, clippy
 
-      - name: Validate Zed package metadata
+      - name: Validate Cargo and Zed package metadata
         shell: bash
         run: |
           set -euo pipefail
@@ -38,9 +38,14 @@ jobs:
           import tomllib
 
           root = pathlib.Path('.')
-          zed = tomllib.loads((root / '.zpkg.toml').read_text())
           cargo = tomllib.loads((root / 'Cargo.toml').read_text())
+          zed = tomllib.loads((root / '.zpkg.toml').read_text())
+          lock = tomllib.loads((root / 'Cargo.lock').read_text())
 
+          assert cargo['package']['name'] == 'cliptown-lib'
+          assert cargo['package']['edition'] == '2024'
+          assert cargo['package']['rust-version'] == '1.88'
+          assert cargo.get('dependencies', {}) == {}
           assert zed['package']['org'] == 'cliptown'
           assert zed['package']['name'] == 'cliptown-lib'
           assert zed['package']['version'] == cargo['package']['version']
@@ -48,26 +53,33 @@ jobs:
           assert zed['dependencies'] == {
               'cliptown/cliptown-interfaces': '^0.1.0',
           }
-          assert zed['targets']['rust']['dir'] == '.'
-          assert zed['targets']['rust']['adapter'] == 'rust'
+          assert zed['targets']['repository']['dir'] == '.'
+          assert zed['targets']['rust'] == {'dir': '.', 'adapter': 'rust'}
+          assert lock['version'] == 4
+          assert any(
+              package.get('name') == 'cliptown-lib'
+              and package.get('version') == cargo['package']['version']
+              for package in lock['package']
+          )
           assert not (root / '.zpkg.lock').exists(), (
               'Do not fabricate .zpkg.lock; generate it with the reviewed resolver.'
           )
           PY
+          cargo metadata --locked --format-version 1 --no-deps >/dev/null
 
       - name: Check formatting
         run: cargo fmt --all --check
 
       - name: Run Clippy
-        run: cargo clippy --all-targets -- -D warnings
+        run: cargo clippy --locked --all-targets --all-features -- -D warnings
 
       - name: Run tests
-        run: cargo test --all-targets
+        run: cargo test --locked --all-features
 
       - name: Build documentation with warnings denied
         env:
           RUSTDOCFLAGS: -D warnings
-        run: cargo doc --no-deps
+        run: cargo doc --locked --no-deps --all-features
 
       - name: Verify package contents
         run: cargo package --allow-dirty --list
