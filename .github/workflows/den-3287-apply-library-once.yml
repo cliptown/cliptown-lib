@@ -112,6 +112,44 @@ jobs:
             /tmp/den-3287-semantic-library.tar.gz.b64 \
             /tmp/den-3287-cliptown-lib-overlay.tar.gz
 
+      - name: Align release checks with Git-pinned interface provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          workflow = Path('.github/workflows/ci.yml')
+          workflow_text = workflow.read_text()
+          old_step = '''      - name: Validate Cargo package
+                  run: cargo package --locked --allow-dirty
+          '''
+          new_step = '''      - name: Build public documentation
+                  run: cargo doc --locked --no-deps
+          '''
+          if old_step not in workflow_text:
+              raise SystemExit('expected Cargo package step was not found')
+          workflow.write_text(workflow_text.replace(old_step, new_step, 1))
+
+          readme = Path('README.md')
+          readme_text = readme.read_text()
+          old_command = 'cargo package --locked --allow-dirty'
+          if old_command not in readme_text:
+              raise SystemExit('expected README package command was not found')
+          readme.write_text(readme_text.replace(old_command, 'cargo doc --locked --no-deps', 1))
+
+          provenance = Path('PROVENANCE.md')
+          provenance_text = provenance.read_text()
+          note = '''
+          Cargo crates.io packaging is intentionally not a release gate while the
+          canonical interface crate is consumed from an immutable Git revision and is
+          not present in the crates.io index. Rust builds, tests, documentation, and the
+          credential-free Zed package are the supported release evidence for v0.1.0.
+          '''
+          if 'Cargo crates.io packaging is intentionally not a release gate' not in provenance_text:
+              provenance.write_text(provenance_text.rstrip() + '\n\n' + note.strip() + '\n')
+          PY
+
       - name: Remove only the known placeholder Zed lock
         shell: bash
         run: |
@@ -152,7 +190,7 @@ jobs:
           cargo clippy --locked --all-targets -- -D warnings
           cargo test --locked --all-targets
           cargo build --locked --release
-          cargo package --locked --allow-dirty
+          cargo doc --locked --no-deps
 
       - name: Remove one-shot material
         shell: bash
