@@ -100,11 +100,15 @@ jobs:
         run: cargo build --locked --release
 
       - name: Pack Zed package contract without credentials
+        shell: bash
         run: |
           set -euo pipefail
-          .zed-cli/target/release/zed pack --out /tmp/cliptown-lib-zed.tar.gz
-          test -s /tmp/cliptown-lib-zed.tar.gz
-          tar -tzf /tmp/cliptown-lib-zed.tar.gz >/tmp/cliptown-lib-zed-files.txt
+          package_dir="$(mktemp -d)"
+          .zed-cli/target/release/zed pack --out "$package_dir"
+          mapfile -t archives < <(find "$package_dir" -maxdepth 1 -type f -name '*.tar.gz' -print)
+          test "${#archives[@]}" -eq 1
+          test -s "${archives[0]}"
+          tar -tzf "${archives[0]}" >/tmp/cliptown-lib-zed-files.txt
           grep -Eq '(^|/)Cargo.toml$' /tmp/cliptown-lib-zed-files.txt
           grep -Eq '(^|/)src/lib.rs$' /tmp/cliptown-lib-zed-files.txt
 

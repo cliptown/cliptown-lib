@@ -5,6 +5,7 @@ version = "0.1.0"
 description = "Shared Rust domain logic, authorization policy, privacy validation, deterministic sync, and retry policy for ClipTown"
 license = "MIT"
 keywords = ["clipboard", "rust", "sdk", "sync", "privacy", "e2ee"]
+language = "rust"
 
 [package.repository]
 vcs = "git"
@@ -32,14 +33,6 @@ exclude = [
   ".DS_Store",
   "**/target/**",
 ]
-
-[targets.repository]
-dir = "."
-
-[targets.rust]
-dir = "."
-name = "cliptown-lib"
-adapter = "rust"
 
 [scripts]
 test = "cargo test --locked --all-targets --all-features"
