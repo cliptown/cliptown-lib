@@ -14,7 +14,8 @@ clients      CLI
 - [`cliptown/cliptown-interfaces`](https://github.com/cliptown/cliptown-interfaces)
   owns versioned Protobuf, OpenAPI, and JSON Schema contracts.
 - `cliptown-lib` owns transport-neutral Rust domain types, validation, policy,
-  storage/transport ports, transfer state, and delegated product authorization.
+  storage/transport ports, interface adaptation, deterministic convergence,
+  transfer state, and delegated product authorization.
 - [`cliptown/cliptown-clients`](https://github.com/cliptown/cliptown-clients)
   owns public language clients and runtime adapters.
 - Backends, Flutter, GPUI desktop, extension, and CLI repositories own concrete
@@ -54,6 +55,13 @@ fallback into MemeBank or another product.
   with fresh normalized LOA2 required for write and delete operations.
 - `transfer`: terminal encrypted-transfer transitions and subject-, route-,
   operation-, digest-, and expiry-bound idempotency decisions.
+- `contract`: explicit adaptation from pinned, versioned Rust interfaces into
+  domain records without inventing plaintext hashes.
+- `crypto`: strict base64/cipher-envelope validation and opaque,
+  domain-separated encrypted-payload fingerprints.
+- `search`: local-only, blind-index, and explicitly opted-in vector policy.
+- `convergence`: deterministic canonical clip merge and opaque cursor rules.
+- `api`: idempotency-key and bounded retry decisions for public clients.
 - `error`: dependency-free validation errors shared across the crate.
 
 The crate does not parse JWTs, fetch JWKS, call shared-auth, or perform session
@@ -62,9 +70,11 @@ constructing `DelegatedClaims`.
 
 ## Rust and Zed packaging
 
-The Cargo crate intentionally has no third-party dependencies. Concrete
-cryptography, Postgres/Supabase, R2, HTTP, UI, and operating-system adapters
-belong in their owning repositories.
+The Cargo crate pins the canonical generated Rust interfaces to reviewed merge
+`ec4f820bcc9181c2423a6963d3890ddc8ef18b97`. Its small validation-only
+dependency set implements encoded-envelope checks, opaque hashing, and test
+fixtures; concrete cryptography, Postgres/Supabase, R2, HTTP, UI, and
+operating-system adapters remain in their owning repositories.
 
 The Zed package declares `cliptown/cliptown-interfaces` as its versioned
 contract dependency. Generated interface source is not copied into this
@@ -76,7 +86,7 @@ provenance and is never authored manually.
 ```sh
 cargo fmt --all --check
 cargo clippy --locked --all-targets --all-features -- -D warnings
-cargo test --locked --all-features
+cargo test --locked --all-targets --all-features
 RUSTDOCFLAGS='-D warnings' cargo doc --locked --no-deps --all-features
 ```
 

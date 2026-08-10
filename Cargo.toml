@@ -7,7 +7,7 @@ description = "Shared Rust domain library and policy core for ClipTown"
 license = "MIT"
 repository = "https://github.com/cliptown/cliptown-lib"
 readme = "README.md"
-keywords = ["clipboard", "sync", "encryption", "e2ee"]
+keywords = ["clipboard", "sync", "encryption", "privacy", "e2ee"]
 categories = ["cryptography", "data-structures"]
 publish = false
 
@@ -17,6 +17,15 @@ path = "src/lib.rs"
 
 [features]
 default = []
+
+[dependencies]
+base64 = "0.22"
+cliptown-interfaces-rust = { version = "0.1.0", git = "https://github.com/cliptown/cliptown-interfaces", rev = "ec4f820bcc9181c2423a6963d3890ddc8ef18b97", package = "cliptown-interfaces-rust" }
+sha2 = "0.10"
+
+[dev-dependencies]
+chrono = "0.4"
+uuid = { version = "1", features = ["v7"] }
 
 [lints.rust]
 missing_docs = "deny"

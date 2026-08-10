@@ -10,3 +10,7 @@
 .direnv/
 result
 .vendor/.zed/
+.zed/
+.zed-pack/
+tmp/
+*.log

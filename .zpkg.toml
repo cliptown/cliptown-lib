@@ -2,9 +2,9 @@
 org = "cliptown"
 name = "cliptown-lib"
 version = "0.1.0"
-description = "Shared Rust domain library and policy core for ClipTown applications, services, and SDKs"
+description = "Shared Rust domain logic, authorization policy, privacy validation, deterministic sync, and retry policy for ClipTown"
 license = "MIT"
-keywords = ["clipboard", "rust", "sdk", "sync", "e2ee"]
+keywords = ["clipboard", "rust", "sdk", "sync", "privacy", "e2ee"]
 
 [package.repository]
 vcs = "git"
@@ -19,11 +19,27 @@ dir = ".vendor/.zed"
 [publish]
 include_readme = true
 tag_format = "v{version}"
-exclude = [".vendor/.zed/**", "target/**"]
+smoke_test = "cargo test --locked --all-targets --all-features"
+exclude = [
+  ".env",
+  ".env.*",
+  ".direnv/**",
+  ".vendor/.zed/**",
+  ".zed/**",
+  ".zed-pack/**",
+  "tmp/**",
+  "**/*.log",
+  ".DS_Store",
+  "**/target/**",
+]
 
 [targets.repository]
 dir = "."
 
 [targets.rust]
 dir = "."
+name = "cliptown-lib"
 adapter = "rust"
+
+[scripts]
+test = "cargo test --locked --all-targets --all-features"

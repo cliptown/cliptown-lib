@@ -1,18 +1,26 @@
 //! Transport-neutral domain types and policy invariants shared by ClipTown.
 //!
-//! The crate intentionally contains no concrete database, network, UI, token-
-//! verification, or cryptographic implementation. Those details live behind
-//! adapters and ports so applications cannot weaken the clipboard/application-
-//! vault separation or delegated product authorization.
+//! The crate owns deterministic, side-effect-free policy that should behave the
+//! same in servers, CLIs, desktop applications, and SDKs. Concrete database,
+//! network, UI, cryptographic-key, token-verification, and operating-system
+//! adapters remain in their owning repositories.
 
 #![forbid(unsafe_code)]
 
+pub mod api;
+pub mod contract;
+pub mod convergence;
+pub mod crypto;
 mod delegation;
 mod error;
 mod model;
 mod policy;
 mod ports;
+pub mod search;
 mod transfer;
+
+/// Canonical versioned ClipTown wire contracts pinned by this crate.
+pub use cliptown_interfaces_rust as interfaces;
 
 pub use delegation::{
     AuthorizedSubject, CLIPTOWN_API_AUDIENCE, DelegatedClaims, DelegationError, DelegationPolicy,
