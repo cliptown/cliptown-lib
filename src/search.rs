@@ -69,14 +69,14 @@ pub fn validate_search_request(request: &SearchRequest) -> Result<SearchPlan, Va
             {
                 return Err(ValidationError::SearchModeMismatch);
             }
-            let mut unique = HashSet::with_capacity(request.blind_terms.len());
-            for term in &request.blind_terms {
-                if !(16..=128).contains(&term.len())
-                    || !term.bytes().all(is_blind_term_byte)
-                    || !unique.insert(term.as_str())
-                {
-                    return Err(ValidationError::InvalidSearchRequest);
-                }
+            if request.blind_terms.iter().any(|term| {
+                !(16..=128).contains(&term.len()) || !term.bytes().all(is_blind_term_byte)
+            }) {
+                return Err(ValidationError::InvalidSearchRequest);
+            }
+            let unique: HashSet<_> = request.blind_terms.iter().map(String::as_str).collect();
+            if unique.len() != request.blind_terms.len() {
+                return Err(ValidationError::InvalidSearchRequest);
             }
             Ok(SearchPlan::BlindIndex {
                 limit: request.limit,
