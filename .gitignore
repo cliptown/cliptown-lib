@@ -14,3 +14,8 @@ result
 .zed-pack/
 tmp/
 *.log
+
+# Repository-local temporary data and authorized Git worktrees
+temp
+tmp/worktrees
+temp/worktrees
