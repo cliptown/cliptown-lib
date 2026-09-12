@@ -14,3 +14,6 @@ result
 .zed-pack/
 tmp/
 *.log
+
+# Sanctioned scratch locations - AGENTS.md requires both, trailing-slash form
+temp/
