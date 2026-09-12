@@ -14,3 +14,6 @@ result
 .zed-pack/
 tmp/
 *.log
+
+# Machine-local agent instruction symlink (absolute path; never committed)
+.ores/
