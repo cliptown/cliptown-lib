@@ -40,6 +40,25 @@ pub enum SearchPlan {
     },
 }
 
+impl SearchPlan {
+    /// True only when this *validated* plan deliberately uses the remote
+    /// blind-index or opted-in vector mode. Local-only never uploads artifacts.
+    #[must_use]
+    pub const fn permits_remote_artifacts(&self) -> bool {
+        matches!(self, Self::BlindIndex { .. } | Self::OptInVector { .. })
+    }
+
+    /// Whether the plan limits matches to user-pinned records.
+    #[must_use]
+    pub const fn pinned_only(&self) -> bool {
+        match self {
+            Self::LocalOnly { pinned_only, .. }
+            | Self::BlindIndex { pinned_only, .. }
+            | Self::OptInVector { pinned_only, .. } => *pinned_only,
+        }
+    }
+}
+
 /// Validates that a request contains only artifacts allowed by its privacy mode.
 ///
 /// # Errors
@@ -165,6 +184,18 @@ mod tests {
             validate_search_request(&duplicate),
             Err(ValidationError::InvalidSearchRequest)
         );
+    }
+
+    #[test]
+    fn validated_plans_expose_privacy_safe_transport_decision() {
+        let local = SearchPlan::LocalOnly { limit: 2, pinned_only: false };
+        let blind = SearchPlan::BlindIndex { limit: 2, pinned_only: true, term_count: 1 };
+        let vector = SearchPlan::OptInVector { limit: 2, pinned_only: false, dimensions: EMBEDDING_DIMENSIONS };
+        assert!(!local.permits_remote_artifacts());
+        assert!(blind.permits_remote_artifacts());
+        assert!(vector.permits_remote_artifacts());
+        assert!(!local.pinned_only());
+        assert!(blind.pinned_only());
     }
 
     #[test]
