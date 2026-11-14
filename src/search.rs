@@ -188,9 +188,20 @@ mod tests {
 
     #[test]
     fn validated_plans_expose_privacy_safe_transport_decision() {
-        let local = SearchPlan::LocalOnly { limit: 2, pinned_only: false };
-        let blind = SearchPlan::BlindIndex { limit: 2, pinned_only: true, term_count: 1 };
-        let vector = SearchPlan::OptInVector { limit: 2, pinned_only: false, dimensions: EMBEDDING_DIMENSIONS };
+        let local = SearchPlan::LocalOnly {
+            limit: 2,
+            pinned_only: false,
+        };
+        let blind = SearchPlan::BlindIndex {
+            limit: 2,
+            pinned_only: true,
+            term_count: 1,
+        };
+        let vector = SearchPlan::OptInVector {
+            limit: 2,
+            pinned_only: false,
+            dimensions: EMBEDDING_DIMENSIONS,
+        };
         assert!(!local.permits_remote_artifacts());
         assert!(blind.permits_remote_artifacts());
         assert!(vector.permits_remote_artifacts());
