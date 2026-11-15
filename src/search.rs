@@ -41,6 +41,17 @@ pub enum SearchPlan {
 }
 
 impl SearchPlan {
+    /// Stable privacy-mode identifier for safe metrics and health diagnostics.
+    /// No plaintext query, blind term, embedding value, or user identifier is emitted.
+    #[must_use]
+    pub const fn telemetry_mode(&self) -> &'static str {
+        match self {
+            Self::LocalOnly { .. } => "local_only",
+            Self::BlindIndex { .. } => "blind_index",
+            Self::OptInVector { .. } => "opt_in_vector",
+        }
+    }
+
     /// True only when this *validated* plan deliberately uses the remote
     /// blind-index or opted-in vector mode. Local-only never uploads artifacts.
     #[must_use]
@@ -202,6 +213,9 @@ mod tests {
             pinned_only: false,
             dimensions: EMBEDDING_DIMENSIONS,
         };
+        assert_eq!(local.telemetry_mode(), "local_only");
+        assert_eq!(blind.telemetry_mode(), "blind_index");
+        assert_eq!(vector.telemetry_mode(), "opt_in_vector");
         assert!(!local.permits_remote_artifacts());
         assert!(blind.permits_remote_artifacts());
         assert!(vector.permits_remote_artifacts());
